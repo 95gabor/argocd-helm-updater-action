@@ -27,9 +27,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Simple test
+      - name: With dry-run
         uses: ./
         with:
-          main_director: ./test
-          recursive: true
-          color_logs: true
+          dry_run: true
+
+      - name: Without recursive
+        uses: ./
+        with:
+          recursive: false
+
+      - name: With specified directory
+        uses: ./
+        with:
+          main_directory: ./test
+
+      - name: Without colors
+        uses: ./
+        with:
+          color_logs: false
