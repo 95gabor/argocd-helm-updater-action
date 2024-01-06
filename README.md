@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: 95gabor/argocd-helm-updater-action@v1.0.0
+      - uses: 95gabor/argocd-helm-updater-action@v1
         with:
           main_director: ./infra
           recursive: true
