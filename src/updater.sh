@@ -1,9 +1,9 @@
 #!/bin/bash
 
-main_directory="${1:-.}"
-recursive="${2:-true}"
-color_logs="${3:-true}"
-dry_run="${4:-false}"
+main_directory="${INPUT_MAIN_DIRECTORY:-.}"
+recursive="${INPUT_RECURSIVE:-true}"
+color_logs="${INPUT_COLOR_LOGS:-true}"
+dry_run="${INPUT_DRY_RUN:-false}"
 
 color_red="\033[1;31m"
 color_green="\033[1;32m"
@@ -32,6 +32,13 @@ check_command() {
     log_error "Error: The '$1' command is required but not installed. Please install the appropriate package."
     exit 1
   }
+}
+
+yq_patch_file() {
+  local src_file="$1"
+  local eval_line="$2"
+
+  diff -B <(yq "$src_file") <(yq eval "$eval_line" "$src_file") | patch "$src_file"
 }
 
 check_command "helm"
@@ -84,7 +91,7 @@ eval "$find_command" | while IFS= read -r -d $'\0' file; do
 
   if [ -n "${latest_version}" ]; then
     if [ "$dry_run" != true ]; then
-      yq eval -i ".spec.source.targetRevision = \"$latest_version\"" "$file"
+      yq_patch_file "$file" ".spec.source.targetRevision = \"$latest_version\""
     fi
     log_success "Updated targetRevision in $file to $latest_version."
   else
