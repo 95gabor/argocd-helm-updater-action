@@ -1,0 +1,35 @@
+name: integration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'src/**'
+      - 'action.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'src/**'
+      - 'action.yaml'
+
+jobs:
+  simple:
+    name: Simple test with specified folders, recursive and colors
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Simple test
+        uses: ./
+        with:
+          main_director: ./test
+          recursive: true
+          color_logs: true

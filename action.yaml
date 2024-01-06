@@ -1,0 +1,30 @@
+# https://help.github.com/en/articles/metadata-syntax-for-github-actions
+name: ArgoCD Helm Chart Updater
+description: Updates Helm chart versions in ArgoCD Application descriptors
+author: Gabor Pichner
+
+inputs:
+  main_directory:
+    description: 'The main directory for the script.'
+    required: false
+    default: '.'
+
+  recursive:
+    description: 'Enable recursive search.'
+    required: false
+    default: 'true'
+
+  color_logs:
+    description: 'Enable colored logs.'
+    required: false
+    default: 'true'
+
+  dry_run:
+    description: 'Enable dry run mode.'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'node20'
+
+  main: src/index.js

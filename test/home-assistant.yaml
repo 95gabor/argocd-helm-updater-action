@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: home-assistant
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://95gabor.github.io/home-charts
+    chart: home-assistant
+    targetRevision: 0.2.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: smart-home
