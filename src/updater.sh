@@ -86,7 +86,7 @@ eval "$find_command" | while IFS= read -r -d $'\0' file; do
   helm repo update "$app_name"
 
   # Use helm search with output as json and jq to filter the result
-  latest_version=$(helm search repo "$app_name/$chart" --output json | 
+  latest_version=$(helm search repo --regexp "\v$app_name/$chart\v" --output json | 
                     jq -r "max_by(.version) | .version // empty")
 
   if [ -n "${latest_version}" ]; then
