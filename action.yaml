@@ -3,6 +3,10 @@ name: ArgoCD Helm Chart Updater
 description: Updates Helm chart versions in ArgoCD Application descriptors
 author: Gabor Pichner
 
+branding:
+  icon: 'refresh-ccw'
+  color: 'blue'
+
 inputs:
   main_directory:
     description: 'The main directory for the script.'
@@ -26,5 +30,4 @@ inputs:
 
 runs:
   using: 'node20'
-
   main: src/index.js
