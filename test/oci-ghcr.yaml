@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oci-ghcr-test
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://ghcr.io/helm-charts/my-chart
+    targetRevision: 1.0.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+

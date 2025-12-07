@@ -8,6 +8,7 @@ on:
       - '.github/workflows/**'
       - 'src/**'
       - 'action.yaml'
+      - 'test/**'
   push:
     branches:
       - main
@@ -15,6 +16,7 @@ on:
       - '.github/workflows/**'
       - 'src/**'
       - 'action.yaml'
+      - 'test/**'
 
 jobs:
   simple:
@@ -46,3 +48,33 @@ jobs:
         uses: ./
         with:
           color_logs: false
+
+  oci-tests:
+    name: OCI registry tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          curl -sSfL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /tmp/yq
+          sudo install /tmp/yq /usr/local/bin/yq
+          chmod +x test/*.sh
+
+      - name: Run OCI detection tests
+        run: |
+          ./test/test-oci-detection.sh
+
+      - name: Run integration tests
+        run: |
+          ./test/test-script.sh
+
+      - name: Test with OCI files (dry-run)
+        uses: ./
+        with:
+          main_directory: ./test
+          recursive: true
+          dry_run: true

@@ -55,6 +55,41 @@ jobs:
           branch-suffix: timestamp
 ```
 
+## OCI Registry Support
+
+This action supports both traditional Helm repositories and OCI (Open Container Initiative) registries. OCI registries are detected when:
+
+- The `repoURL` starts with `oci://` prefix (required for OCI detection)
+
+**Note:** The `oci://` prefix is required to distinguish OCI Helm charts from traditional Helm repositories. This prevents misclassification of traditional Helm repos that might be hosted on container registry domains.
+
+For OCI registries, the action uses Helm's native OCI support (requires Helm 3.8+) to discover and update chart versions.
+
+According to [ArgoCD OCI documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/oci/), for OCI Helm charts:
+- The chart name is part of the `repoURL` (e.g., `oci://registry-1.docker.io/bitnamicharts/nginx`)
+- The `chart` field is **not used** - the chart name is included in the URL path
+- The `path` field should be set to `.` for OCI Helm charts
+- The `targetRevision` specifies the chart version/tag
+
+### Example OCI Configuration
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx
+spec:
+  source:
+    repoURL: oci://registry-1.docker.io/bitnamicharts/nginx
+    targetRevision: 15.9.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nginx
+```
+
+**Note:** OCI registries require explicit semantic version tags. The action automatically discovers the latest version by querying the registry API (Docker Registry API v2) to list available tags, then filters for semantic versions and selects the latest stable release. For private repositories, authentication may be required. The action supports common registries including Docker Hub, GHCR, GCR, Quay.io, Azure ACR, and AWS ECR.
+
 ## Action inputs
 
 | Name | Description | Default Value |

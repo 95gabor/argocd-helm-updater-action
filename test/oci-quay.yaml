@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oci-quay-test
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://quay.io/helm-charts/my-application
+    targetRevision: 3.2.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
