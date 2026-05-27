@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oci-8gears-n8n
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://8gears.container-registry.com/library/n8n
+    targetRevision: 1.0.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: n8n

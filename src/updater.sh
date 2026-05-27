@@ -73,6 +73,37 @@ select_latest_semver_tag() {
   grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -1
 }
 
+# Fallback for Harbor-based registries (for example 8gears.container-registry.com) where crane may fail.
+get_latest_oci_version_via_harbor_api() {
+  local oci_ref="$1"
+  local oci_path="${oci_ref#oci://}"
+  local registry_host="${oci_path%%/*}"
+  local repo_path="${oci_path#*/}"
+  local project repo_name api_url tags
+
+  if [ -z "$repo_path" ] || [ "$repo_path" = "$oci_path" ]; then
+    return 1
+  fi
+
+  project="${repo_path%%/*}"
+  repo_name="${repo_path#*/}"
+  if [ -z "$repo_name" ] || [ "$repo_name" = "$repo_path" ]; then
+    return 1
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    return 1
+  fi
+
+  api_url="https://${registry_host}/api/v2.0/projects/${project}/repositories/${repo_name}/artifacts?page_size=100"
+  tags=$(curl -sfL "$api_url" 2>/dev/null | jq -r '.[].tags[].name' 2>/dev/null || true)
+  if is_empty_value "$tags"; then
+    return 1
+  fi
+
+  echo "$tags" | select_latest_semver_tag
+}
+
 get_latest_oci_version() {
   local oci_ref="$1"
   local latest_version=""
@@ -83,13 +114,16 @@ get_latest_oci_version() {
     latest_version=$(echo "$helm_results" | jq -r '.[].version' | select_latest_semver_tag)
   fi
 
-  if is_empty_value "$latest_version"; then
-    if ! command -v crane >/dev/null 2>&1; then
-      log_error "Error: The 'crane' command is required for OCI chart sources. Install from https://github.com/google/go-containerregistry/tree/main/cmd/crane"
-      echo ""
-      return
-    fi
+  if is_empty_value "$latest_version" && command -v crane >/dev/null 2>&1; then
     latest_version=$(crane ls "${oci_ref#oci://}" 2>/dev/null | select_latest_semver_tag)
+  fi
+
+  if is_empty_value "$latest_version"; then
+    latest_version=$(get_latest_oci_version_via_harbor_api "$oci_ref" || true)
+  fi
+
+  if is_empty_value "$latest_version" && ! command -v crane >/dev/null 2>&1; then
+    log_error "Error: The 'crane' command is required for OCI chart sources when registry APIs are unavailable. Install from https://github.com/google/go-containerregistry/tree/main/cmd/crane"
   fi
 
   echo "$latest_version"

@@ -56,4 +56,4 @@ Use semver-style patterns (for example `[0-9]+\.[0-9]+\.[0-9]+`) instead of pinn
 | `fixtures/home-assistant.yaml` | Traditional Helm repo (custom chart) |
 | `fixtures/multiple-charts.yaml` | `spec.sources` with cert-manager + ingress-nginx |
 | `fixtures/chart-with-values-ref.yaml` | Chart source + `ref: values` source |
-| `fixtures/oci-*.yaml` | OCI sources (Docker Hub, GHCR, ECR, Quay, GCR) |
+| `fixtures/oci-*.yaml` | OCI sources (Docker Hub, GHCR, ECR, Quay, GCR, 8gears Harbor) |

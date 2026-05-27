@@ -100,6 +100,7 @@ Integration test fixtures under `test/fixtures/` cover public OCI sources includ
 - AWS Public ECR (`fixtures/oci-ecr.yaml`) — Karpenter
 - Quay (`fixtures/oci-quay.yaml`) — Strimzi Kafka operator
 - GCR (`fixtures/oci-gcr.yaml`) — Google microservices demo (public `gcr.io` OCI)
+- 8gears Harbor (`fixtures/oci-8gears-n8n.yaml`) — [n8n](https://github.com/8gears/n8n-helm-chart) on `8gears.container-registry.com`
 
 ```yaml
 # Docker Hub OCI (Bitnami nginx)

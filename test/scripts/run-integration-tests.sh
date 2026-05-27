@@ -123,7 +123,7 @@ run_expectation() {
 
 missing_commands=0
 log_info "Checking required commands ..."
-for command_name in yq node grep helm jq crane; do
+for command_name in yq node grep helm jq crane curl; do
   require_command "$command_name" || missing_commands=$((missing_commands + 1))
 done
 

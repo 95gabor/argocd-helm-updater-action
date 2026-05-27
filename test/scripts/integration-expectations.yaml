@@ -29,3 +29,6 @@ cases:
 
   - name: oci gcr google samples
     match: 'Updated \.spec\.source in \./test/fixtures/oci-gcr\.yaml to v?[0-9]+\.[0-9]+\.[0-9]+\.'
+
+  - name: oci 8gears harbor n8n
+    match: 'Updated \.spec\.source in \./test/fixtures/oci-8gears-n8n\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'

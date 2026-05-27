@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file.
 
 - Added OCI Helm chart support for ArgoCD Applications whose `repoURL` uses the `oci://` prefix.
 - Works with both `spec.source` and `spec.sources[]` (non-chart sources such as `ref: values` are skipped).
-- OCI version discovery uses `helm search` when available, then falls back to `crane ls` for registry-agnostic tag listing.
+- OCI version discovery uses `helm search` when available, then `crane ls`, with a Harbor API fallback for registries such as `8gears.container-registry.com`.
 - Added public OCI integration fixtures (Docker Hub, GHCR, AWS Public ECR, Quay, GCR) and a YAML-driven integration test runner under `test/fixtures/` and `test/scripts/`.
 
 ### Optional setup: `crane` for OCI charts
