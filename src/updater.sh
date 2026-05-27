@@ -48,6 +48,61 @@ check_command "helm"
 check_command "jq"
 check_command "yq"
 
+is_empty_value() {
+  local value="$1"
+  [ -z "$value" ] || [ "$value" = "null" ]
+}
+
+process_chart_source() {
+  local file="$1"
+  local source_path="$2"
+  local source_label="$3"
+  local repo_alias="$4"
+
+  local repo_url chart current_revision latest_version
+  repo_url=$(yq eval "${source_path}.repoURL" "$file")
+  chart=$(yq eval "${source_path}.chart" "$file")
+  current_revision=$(yq eval "${source_path}.targetRevision" "$file")
+
+  # Keep compatibility with mixed source types in spec.sources (for example ref-only values sources).
+  if is_empty_value "$repo_url" || is_empty_value "$chart" || is_empty_value "$current_revision"; then
+    return 1
+  fi
+
+  if ! helm repo add "$repo_alias" "$repo_url" >/dev/null 2>&1; then
+    helm repo remove "$repo_alias" >/dev/null 2>&1 || true
+    if ! helm repo add "$repo_alias" "$repo_url" >/dev/null 2>&1; then
+      log_error "Failed to add Helm repository '$repo_alias' from '$repo_url'. Skipping ${source_label}..."
+      return 1
+    fi
+  fi
+
+  if ! helm repo update "$repo_alias" >/dev/null 2>&1; then
+    log_error "Failed to update Helm repository '$repo_alias'. Skipping ${source_label}..."
+    return 1
+  fi
+
+  latest_version=$(helm search repo --regexp "\v$repo_alias/$chart\v" --versions --output json |
+                    jq -r '.[0].version // empty')
+
+  if [ -z "${latest_version}" ]; then
+    log_error "Failed to retrieve the latest version for ${source_label} in $file."
+    return 1
+  fi
+
+  if [ "$latest_version" = "$current_revision" ]; then
+    log_success "No update needed for ${source_label} in $file ($current_revision)."
+    return 1
+  fi
+
+  if [ "$dry_run" != true ]; then
+    yq_patch_file "$file" "${source_path}.targetRevision = \"$latest_version\""
+  fi
+
+  log_success "Updated ${source_label} in $file to $latest_version."
+  return 0
+}
+
 if [ "$recursive" = true ]; then
   find_command="find \"$main_directory\" -type f \( -name \"*.yaml\" -o -name \"*.yml\" \) -print0"
 else
@@ -61,61 +116,34 @@ while IFS= read -r -d $'\0' file; do
     continue
   fi
 
-  repo_url=$(yq eval ".spec.source.repoURL" "$file")
-  if [ -z "$repo_url" ]; then
-    log_error "Missing .spec.source.repoURL in $file. Skipping..."
-    continue
-  fi
-
-  chart=$(yq eval ".spec.source.chart" "$file")
-  if [ -z "$chart" ]; then
-    log_error "Missing chart in $file. Skipping..."
-    continue
-  fi
-
-  current_revision=$(yq eval ".spec.source.targetRevision" "$file")
-  if [ -z "$current_revision" ]; then
-    log_error "Missing .spec.source.targetRevision in $file. Skipping..."
-    continue
-  fi
-
   app_name=$(yq eval ".metadata.name" "$file")
-  if [ -z "$app_name" ]; then
+  if is_empty_value "$app_name"; then
     log_error "Missing .metadata.name in $file. Skipping..."
     continue
   fi
 
-  if ! helm repo add "$app_name" "$repo_url" >/dev/null 2>&1; then
-    helm repo remove "$app_name" >/dev/null 2>&1 || true
-    if ! helm repo add "$app_name" "$repo_url" >/dev/null 2>&1; then
-      log_error "Failed to add Helm repository '$app_name' from '$repo_url'. Skipping..."
-      continue
-    fi
-  fi
+  file_updated=false
 
-  if ! helm repo update "$app_name" >/dev/null 2>&1; then
-    log_error "Failed to update Helm repository '$app_name'. Skipping..."
+  sources_count=$(yq eval '.spec.sources | length' "$file")
+  if ! is_empty_value "$sources_count" && [ "$sources_count" -gt 0 ]; then
+    for ((i = 0; i < sources_count; i++)); do
+      source_path=".spec.sources[$i]"
+      source_label="${source_path}.chart"
+      repo_alias="${app_name}-${i}"
+
+      if process_chart_source "$file" "$source_path" "$source_label" "$repo_alias"; then
+        file_updated=true
+      fi
+    done
+  elif process_chart_source "$file" ".spec.source" ".spec.source.chart" "$app_name"; then
+    file_updated=true
+  else
+    log_error "No compatible Helm chart source found in $file. Skipping..."
     continue
   fi
 
-  # Use helm search with output as json and jq to filter the result
-  # Helm search returns versions in descending order when available.
-  latest_version=$(helm search repo --regexp "\v$app_name/$chart\v" --versions --output json |
-                    jq -r '.[0].version // empty')
-
-  if [ -n "${latest_version}" ]; then
-    if [ "$latest_version" = "$current_revision" ]; then
-      log_success "No update needed for $file ($current_revision)."
-      continue
-    fi
-
-    if [ "$dry_run" != true ]; then
-      yq_patch_file "$file" ".spec.source.targetRevision = \"$latest_version\""
-    fi
+  if [ "$file_updated" = true ]; then
     updated_count=$((updated_count + 1))
-    log_success "Updated targetRevision in $file to $latest_version."
-  else
-    log_error "Failed to retrieve the latest version of the Helm Chart for $file."
   fi
 done < <(eval "$find_command")
 
