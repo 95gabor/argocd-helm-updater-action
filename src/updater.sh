@@ -66,20 +66,20 @@ process_chart_source() {
 
   # Keep compatibility with mixed source types in spec.sources (for example ref-only values sources).
   if is_empty_value "$repo_url" || is_empty_value "$chart" || is_empty_value "$current_revision"; then
-    return 1
+    return 3
   fi
 
   if ! helm repo add "$repo_alias" "$repo_url" >/dev/null 2>&1; then
     helm repo remove "$repo_alias" >/dev/null 2>&1 || true
     if ! helm repo add "$repo_alias" "$repo_url" >/dev/null 2>&1; then
       log_error "Failed to add Helm repository '$repo_alias' from '$repo_url'. Skipping ${source_label}..."
-      return 1
+      return 4
     fi
   fi
 
   if ! helm repo update "$repo_alias" >/dev/null 2>&1; then
     log_error "Failed to update Helm repository '$repo_alias'. Skipping ${source_label}..."
-    return 1
+    return 4
   fi
 
   latest_version=$(helm search repo --regexp "\v$repo_alias/$chart\v" --versions --output json |
@@ -87,12 +87,12 @@ process_chart_source() {
 
   if [ -z "${latest_version}" ]; then
     log_error "Failed to retrieve the latest version for ${source_label} in $file."
-    return 1
+    return 4
   fi
 
   if [ "$latest_version" = "$current_revision" ]; then
     log_success "No update needed for ${source_label} in $file ($current_revision)."
-    return 1
+    return 2
   fi
 
   if [ "$dry_run" != true ]; then
@@ -123,6 +123,7 @@ while IFS= read -r -d $'\0' file; do
   fi
 
   file_updated=false
+  compatible_source_found=false
 
   sources_count=$(yq eval '.spec.sources | length' "$file")
   if ! is_empty_value "$sources_count" && [ "$sources_count" -gt 0 ]; then
@@ -131,13 +132,31 @@ while IFS= read -r -d $'\0' file; do
       source_label="${source_path}.chart"
       repo_alias="${app_name}-${i}"
 
-      if process_chart_source "$file" "$source_path" "$source_label" "$repo_alias"; then
+      process_chart_source "$file" "$source_path" "$source_label" "$repo_alias"
+      source_status=$?
+
+      if [ "$source_status" -eq 0 ] || [ "$source_status" -eq 2 ]; then
+        compatible_source_found=true
+      fi
+
+      if [ "$source_status" -eq 0 ]; then
         file_updated=true
       fi
     done
-  elif process_chart_source "$file" ".spec.source" ".spec.source.chart" "$app_name"; then
-    file_updated=true
   else
+    process_chart_source "$file" ".spec.source" ".spec.source.chart" "$app_name"
+    source_status=$?
+
+    if [ "$source_status" -eq 0 ] || [ "$source_status" -eq 2 ]; then
+      compatible_source_found=true
+    fi
+
+    if [ "$source_status" -eq 0 ]; then
+      file_updated=true
+    fi
+  fi
+
+  if [ "$compatible_source_found" != true ]; then
     log_error "No compatible Helm chart source found in $file. Skipping..."
     continue
   fi
