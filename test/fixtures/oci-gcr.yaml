@@ -1,0 +1,15 @@
+# Public Google sample OCI artifact on gcr.io (anonymous tag listing).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oci-gcr-google-samples
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://gcr.io/google-samples/microservices-demo/frontend
+    targetRevision: v0.7.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default

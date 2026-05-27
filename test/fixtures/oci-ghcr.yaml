@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oci-ghcr-podinfo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://ghcr.io/stefanprodan/charts/podinfo
+    targetRevision: 6.5.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default

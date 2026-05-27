@@ -6,12 +6,12 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://charts.bitnami.com/bitnami
-      chart: nginx
-      targetRevision: 13.0.0
-    - repoURL: https://charts.bitnami.com/bitnami
-      chart: redis
-      targetRevision: 17.0.0
+    - repoURL: https://charts.jetstack.io
+      chart: cert-manager
+      targetRevision: v1.15.0
+    - repoURL: https://kubernetes.github.io/ingress-nginx
+      chart: ingress-nginx
+      targetRevision: 4.10.0
   destination:
     server: https://kubernetes.default.svc
     namespace: default

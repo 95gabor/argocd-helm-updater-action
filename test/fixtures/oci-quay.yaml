@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oci-quay-strimzi
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://quay.io/strimzi-helm/strimzi-kafka-operator
+    targetRevision: 0.40.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kafka

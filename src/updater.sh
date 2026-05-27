@@ -53,7 +53,97 @@ is_empty_value() {
   [ -z "$value" ] || [ "$value" = "null" ]
 }
 
-process_chart_source() {
+is_oci_repo_url() {
+  [[ "$1" == oci://* ]]
+}
+
+build_oci_reference() {
+  local repo_url="$1"
+  local chart="$2"
+  local oci_ref="$repo_url"
+
+  if ! is_empty_value "$chart"; then
+    oci_ref="${repo_url%/}/${chart}"
+  fi
+
+  echo "$oci_ref"
+}
+
+select_latest_semver_tag() {
+  grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -1
+}
+
+get_latest_oci_version() {
+  local oci_ref="$1"
+  local latest_version=""
+  local helm_results
+
+  helm_results=$(helm search repo "$oci_ref" --versions --output json 2>/dev/null || true)
+  if [ -n "$helm_results" ] && echo "$helm_results" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
+    latest_version=$(echo "$helm_results" | jq -r '.[].version' | select_latest_semver_tag)
+  fi
+
+  if is_empty_value "$latest_version"; then
+    if ! command -v crane >/dev/null 2>&1; then
+      log_error "Error: The 'crane' command is required for OCI chart sources. Install from https://github.com/google/go-containerregistry/tree/main/cmd/crane"
+      echo ""
+      return
+    fi
+    latest_version=$(crane ls "${oci_ref#oci://}" 2>/dev/null | select_latest_semver_tag)
+  fi
+
+  echo "$latest_version"
+}
+
+apply_target_revision_update() {
+  local file="$1"
+  local source_path="$2"
+  local source_label="$3"
+  local current_revision="$4"
+  local latest_version="$5"
+
+  if is_empty_value "$latest_version"; then
+    log_error "Failed to retrieve the latest version for ${source_label} in $file."
+    return 4
+  fi
+
+  if [ "$latest_version" = "$current_revision" ]; then
+    log_success "No update needed for ${source_label} in $file ($current_revision)."
+    return 2
+  fi
+
+  if [ "$dry_run" != true ]; then
+    yq_patch_file "$file" "${source_path}.targetRevision = \"$latest_version\""
+  fi
+
+  log_success "Updated ${source_label} in $file to $latest_version."
+  return 0
+}
+
+process_oci_chart_source() {
+  local file="$1"
+  local source_path="$2"
+  local source_label="$3"
+
+  local repo_url chart current_revision oci_ref latest_version
+  repo_url=$(yq eval "${source_path}.repoURL" "$file")
+  chart=$(yq eval "${source_path}.chart" "$file")
+  current_revision=$(yq eval "${source_path}.targetRevision" "$file")
+
+  if is_empty_value "$repo_url" || is_empty_value "$current_revision"; then
+    return 3
+  fi
+
+  if ! is_oci_repo_url "$repo_url"; then
+    return 3
+  fi
+
+  oci_ref=$(build_oci_reference "$repo_url" "$chart")
+  latest_version=$(get_latest_oci_version "$oci_ref")
+  apply_target_revision_update "$file" "$source_path" "$source_label" "$current_revision" "$latest_version"
+}
+
+process_helm_repo_chart_source() {
   local file="$1"
   local source_path="$2"
   local source_label="$3"
@@ -64,7 +154,6 @@ process_chart_source() {
   chart=$(yq eval "${source_path}.chart" "$file")
   current_revision=$(yq eval "${source_path}.targetRevision" "$file")
 
-  # Keep compatibility with mixed source types in spec.sources (for example ref-only values sources).
   if is_empty_value "$repo_url" || is_empty_value "$chart" || is_empty_value "$current_revision"; then
     return 3
   fi
@@ -85,22 +174,24 @@ process_chart_source() {
   latest_version=$(helm search repo --regexp "\v$repo_alias/$chart\v" --versions --output json |
                     jq -r '.[0].version // empty')
 
-  if [ -z "${latest_version}" ]; then
-    log_error "Failed to retrieve the latest version for ${source_label} in $file."
-    return 4
+  apply_target_revision_update "$file" "$source_path" "$source_label" "$current_revision" "$latest_version"
+}
+
+process_chart_source() {
+  local file="$1"
+  local source_path="$2"
+  local source_label="$3"
+  local repo_alias="$4"
+
+  local repo_url
+  repo_url=$(yq eval "${source_path}.repoURL" "$file")
+
+  if is_oci_repo_url "$repo_url"; then
+    process_oci_chart_source "$file" "$source_path" "$source_label"
+    return $?
   fi
 
-  if [ "$latest_version" = "$current_revision" ]; then
-    log_success "No update needed for ${source_label} in $file ($current_revision)."
-    return 2
-  fi
-
-  if [ "$dry_run" != true ]; then
-    yq_patch_file "$file" "${source_path}.targetRevision = \"$latest_version\""
-  fi
-
-  log_success "Updated ${source_label} in $file to $latest_version."
-  return 0
+  process_helm_repo_chart_source "$file" "$source_path" "$source_label" "$repo_alias"
 }
 
 if [ "$recursive" = true ]; then
@@ -129,7 +220,7 @@ while IFS= read -r -d $'\0' file; do
   if ! is_empty_value "$sources_count" && [ "$sources_count" -gt 0 ]; then
     for ((i = 0; i < sources_count; i++)); do
       source_path=".spec.sources[$i]"
-      source_label="${source_path}.chart"
+      source_label="${source_path}"
       repo_alias="${app_name}-${i}"
 
       process_chart_source "$file" "$source_path" "$source_label" "$repo_alias"
@@ -144,7 +235,7 @@ while IFS= read -r -d $'\0' file; do
       fi
     done
   else
-    process_chart_source "$file" ".spec.source" ".spec.source.chart" "$app_name"
+    process_chart_source "$file" ".spec.source" ".spec.source" "$app_name"
     source_status=$?
 
     if [ "$source_status" -eq 0 ] || [ "$source_status" -eq 2 ]; then

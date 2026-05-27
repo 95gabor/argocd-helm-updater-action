@@ -7,13 +7,13 @@ spec:
   project: default
   sources:
     - repoURL: https://charts.bitnami.com/bitnami
-      chart: nginx
-      targetRevision: 13.0.0
+      chart: redis
+      targetRevision: 17.0.0
       helm:
         valueFiles:
-          - "$values/apps/nginx/values.yaml"
-    - repoURL: https://github.com/example-org/example-values.git
-      targetRevision: main
+          - "$values/helm-guestbook/values.yaml"
+    - repoURL: https://github.com/argoproj/argocd-example-apps.git
+      targetRevision: HEAD
       ref: values
   destination:
     server: https://kubernetes.default.svc

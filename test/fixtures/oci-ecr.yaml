@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oci-ecr-karpenter
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: oci://public.ecr.aws/karpenter/karpenter
+    targetRevision: 0.37.0
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: karpenter

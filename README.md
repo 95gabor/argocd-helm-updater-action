@@ -62,6 +62,61 @@ jobs:
           branch-suffix: timestamp
 ```
 
+### OCI Helm charts
+
+ArgoCD OCI sources are supported when `repoURL` uses the `oci://` prefix (for example `oci://registry-1.docker.io/bitnamicharts/nginx`).
+The chart name can be part of `repoURL` (ArgoCD default) or provided via the optional `chart` field.
+
+Version discovery uses `helm search` when available, then `crane ls` as a registry-agnostic fallback.
+**`crane` is required** when `helm search` cannot list OCI chart versions (typical for most OCI registries).
+
+**`crane` is not required** for traditional Helm repositories (`https://…` chart indexes).
+
+For OCI chart sources, install [crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane) on the runner. In GitHub Actions, use [imjasonh/setup-crane](https://github.com/imjasonh/setup-crane) before this action:
+
+```yaml
+- name: Setup crane
+  uses: imjasonh/setup-crane@v0.5
+
+- uses: 95gabor/argocd-helm-updater-action@v2
+  with:
+    main_directory: ./apps
+```
+
+Private registries work when credentials are configured (`helm registry login`, `crane auth login`, or Docker config used by `crane`).
+
+Run integration tests locally with:
+
+```bash
+bash test/scripts/run-integration-tests.sh
+```
+
+Expectations are defined in `test/scripts/integration-expectations.yaml`. See `test/README.md` for details.
+
+Integration test fixtures under `test/fixtures/` cover public OCI sources including:
+
+- Docker Hub (`fixtures/oci-docker.yaml`) — Bitnami nginx
+- GHCR (`fixtures/oci-ghcr.yaml`) — podinfo
+- AWS Public ECR (`fixtures/oci-ecr.yaml`) — Karpenter
+- Quay (`fixtures/oci-quay.yaml`) — Strimzi Kafka operator
+- GCR (`fixtures/oci-gcr.yaml`) — Google microservices demo (public `gcr.io` OCI)
+
+```yaml
+# Docker Hub OCI (Bitnami nginx)
+spec:
+  source:
+    repoURL: oci://registry-1.docker.io/bitnamicharts/nginx
+    targetRevision: "15.9.0"
+    path: .
+
+# GitHub Container Registry OCI (podinfo)
+# spec:
+#   source:
+#     repoURL: oci://ghcr.io/stefanprodan/charts/podinfo
+#     targetRevision: "6.5.0"
+#     path: .
+```
+
 ## Action inputs
 
 | Name | Description | Default Value |

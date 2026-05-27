@@ -20,16 +20,21 @@ on:
 
 jobs:
   shellcheck:
-    name: ShellCheck updater script
+    name: ShellCheck scripts
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run ShellCheck
+      - name: Run ShellCheck on src
         uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: ./src
+
+      - name: Run ShellCheck on test scripts
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: ./test/scripts
 
   simple:
     name: Simple test with specified folders, recursive and colors
@@ -40,6 +45,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup crane
+        uses: imjasonh/setup-crane@v0.5
+
+      - name: Run integration expectation tests
+        run: bash test/scripts/run-integration-tests.sh
 
       - name: With dry-run
         id: dry-run
@@ -58,7 +69,7 @@ jobs:
       - name: With specified directory
         uses: ./
         with:
-          main_directory: ./test
+          main_directory: ./test/fixtures
 
       - name: Without colors
         uses: ./

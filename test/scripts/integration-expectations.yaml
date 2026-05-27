@@ -1,0 +1,31 @@
+# Integration expectations for dry-run output from src/updater.sh
+# Use semver-friendly regexes so tests stay stable as latest chart versions change.
+
+cases:
+  - name: home-assistant chart updates
+    match: 'Updated \.spec\.source in \./test/fixtures/home-assistant\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'
+
+  - name: traditional multi-source charts update
+    match: 'Updated \.spec\.sources\[0\] in \./test/fixtures/multiple-charts\.yaml to v?[0-9]+\.[0-9]+\.[0-9]+\.'
+  - name: ingress-nginx source updates
+    match: 'Updated \.spec\.sources\[1\] in \./test/fixtures/multiple-charts\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'
+
+  - name: chart source updates with values ref present
+    match: 'Updated \.spec\.sources\[0\] in \./test/fixtures/chart-with-values-ref\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'
+  - name: values ref source does not fail whole app
+    not_match: 'No compatible Helm chart source found in \./test/fixtures/chart-with-values-ref\.yaml'
+
+  - name: oci docker hub nginx
+    match: 'Updated \.spec\.source in \./test/fixtures/oci-docker\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'
+
+  - name: oci ghcr podinfo
+    match: 'Updated \.spec\.source in \./test/fixtures/oci-ghcr\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'
+
+  - name: oci public ecr karpenter
+    match: 'Updated \.spec\.source in \./test/fixtures/oci-ecr\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'
+
+  - name: oci quay strimzi
+    match: 'Updated \.spec\.source in \./test/fixtures/oci-quay\.yaml to [0-9]+\.[0-9]+\.[0-9]+\.'
+
+  - name: oci gcr google samples
+    match: 'Updated \.spec\.source in \./test/fixtures/oci-gcr\.yaml to v?[0-9]+\.[0-9]+\.[0-9]+\.'
