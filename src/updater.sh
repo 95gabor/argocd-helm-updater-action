@@ -1,9 +1,12 @@
 #!/bin/bash
 
+set -o pipefail
+
 main_directory="${INPUT_MAIN_DIRECTORY:-.}"
 recursive="${INPUT_RECURSIVE:-true}"
 color_logs="${INPUT_COLOR_LOGS:-true}"
 dry_run="${INPUT_DRY_RUN:-false}"
+updated_count=0
 
 color_red="\033[1;31m"
 color_green="\033[1;32m"
@@ -51,7 +54,7 @@ else
   find_command="find \"$main_directory\" -maxdepth 1 -type f \( -name \"*.yaml\" -o -name \"*.yml\" \) -print0"
 fi
 
-eval "$find_command" | while IFS= read -r -d $'\0' file; do
+while IFS= read -r -d $'\0' file; do
   kind=$(yq eval '.kind' "$file")
 
   if [ "$kind" != "Application" ]; then
@@ -82,19 +85,40 @@ eval "$find_command" | while IFS= read -r -d $'\0' file; do
     continue
   fi
 
-  helm repo add "$app_name" "$repo_url"
-  helm repo update "$app_name"
+  if ! helm repo add "$app_name" "$repo_url" >/dev/null 2>&1; then
+    helm repo remove "$app_name" >/dev/null 2>&1 || true
+    if ! helm repo add "$app_name" "$repo_url" >/dev/null 2>&1; then
+      log_error "Failed to add Helm repository '$app_name' from '$repo_url'. Skipping..."
+      continue
+    fi
+  fi
+
+  if ! helm repo update "$app_name" >/dev/null 2>&1; then
+    log_error "Failed to update Helm repository '$app_name'. Skipping..."
+    continue
+  fi
 
   # Use helm search with output as json and jq to filter the result
-  latest_version=$(helm search repo --regexp "\v$app_name/$chart\v" --output json | 
-                    jq -r "max_by(.version) | .version // empty")
+  # Helm search returns versions in descending order when available.
+  latest_version=$(helm search repo --regexp "\v$app_name/$chart\v" --versions --output json |
+                    jq -r '.[0].version // empty')
 
   if [ -n "${latest_version}" ]; then
+    if [ "$latest_version" = "$current_revision" ]; then
+      log_success "No update needed for $file ($current_revision)."
+      continue
+    fi
+
     if [ "$dry_run" != true ]; then
       yq_patch_file "$file" ".spec.source.targetRevision = \"$latest_version\""
     fi
+    updated_count=$((updated_count + 1))
     log_success "Updated targetRevision in $file to $latest_version."
   else
     log_error "Failed to retrieve the latest version of the Helm Chart for $file."
   fi
-done
+done < <(eval "$find_command")
+
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  echo "updated_count=$updated_count" >> "$GITHUB_OUTPUT"
+fi

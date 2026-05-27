@@ -5,18 +5,30 @@ on:
     branches:
       - main
     paths:
-      - '.github/workflows/**'
-      - 'src/**'
-      - 'action.yaml'
+      - ".github/workflows/**"
+      - "src/**"
+      - "action.yaml"
   push:
     branches:
       - main
     paths:
-      - '.github/workflows/**'
-      - 'src/**'
-      - 'action.yaml'
+      - ".github/workflows/**"
+      - "src/**"
+      - "action.yaml"
 
 jobs:
+  shellcheck:
+    name: ShellCheck updater script
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: ./src
+
   simple:
     name: Simple test with specified folders, recursive and colors
     runs-on: ${{ matrix.os }}
@@ -28,9 +40,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: With dry-run
+        id: dry-run
         uses: ./
         with:
           dry_run: true
+
+      - name: Print output from dry-run
+        run: 'echo "Updated files: ${{ steps.dry-run.outputs.updated_count }}"'
 
       - name: Without recursive
         uses: ./

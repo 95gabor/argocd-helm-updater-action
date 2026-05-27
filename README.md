@@ -1,4 +1,5 @@
 # ArgoCD Helm chart version updater GitHub Action
+
 [![integration](https://github.com/95gabor/argocd-helm-updater-action/actions/workflows/integration.yaml/badge.svg?branch=main)](https://github.com/95gabor/argocd-helm-updater-action/actions/workflows/integration.yaml)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-ArgoCD%20Helm%20updater-blue.svg?colorA=24292e&colorB=0366d6&style=flat&longCache=true&logo=github)](https://github.com/marketplace/actions/argocd-helm-chart-updater)
 
@@ -16,7 +17,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Simple test
+        id: argo-update
         uses: 95gabor/argocd-helm-updater-action@v1
+
+      - name: Show update count
+        run: echo "Updated files: ${{ steps.argo-update.outputs.updated_count }}"
 ```
 
 ### Scheduled usage with automated PR
@@ -41,7 +46,7 @@ jobs:
 
       - uses: 95gabor/argocd-helm-updater-action@v1
         with:
-          main_director: ./infra
+          main_directory: ./infra
           recursive: true
           color_logs: true
 
@@ -63,3 +68,9 @@ jobs:
 | `recursive` | Perform updates recursively in subdirectories | `true` |
 | `color_logs` | Enable colored logs for better visibility | `true` |
 | `dry_run` | Simulate changes without modifying files | `false` |
+
+## Action outputs
+
+| Name | Description |
+| --- | --- |
+| `updated_count` | Number of ArgoCD Application files whose `targetRevision` was updated in this run |
