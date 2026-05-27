@@ -3,6 +3,8 @@
 [![integration](https://github.com/95gabor/argocd-helm-updater-action/actions/workflows/integration.yaml/badge.svg?branch=main)](https://github.com/95gabor/argocd-helm-updater-action/actions/workflows/integration.yaml)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-ArgoCD%20Helm%20updater-blue.svg?colorA=24292e&colorB=0366d6&style=flat&longCache=true&logo=github)](https://github.com/marketplace/actions/argocd-helm-chart-updater)
 
+> See `CHANGELOG.md` for breaking changes and upgrade notes.
+
 ## Usage
 
 ### Minimal usage
@@ -18,7 +20,7 @@ jobs:
 
       - name: Simple test
         id: argo-update
-        uses: 95gabor/argocd-helm-updater-action@v1
+        uses: 95gabor/argocd-helm-updater-action@v2
 
       - name: Show update count
         run: echo "Updated files: ${{ steps.argo-update.outputs.updated_count }}"
@@ -44,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: 95gabor/argocd-helm-updater-action@v1
+      - uses: 95gabor/argocd-helm-updater-action@v2
         with:
           main_directory: ./infra
           recursive: true
