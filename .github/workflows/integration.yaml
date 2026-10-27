@@ -18,6 +18,9 @@ on:
       - "test/**"
       - "action.yaml"
 
+permissions:
+  contents: read
+
 jobs:
   shellcheck:
     name: ShellCheck scripts
