@@ -37,11 +37,15 @@ check_command() {
   }
 }
 
-yq_patch_file() {
+yq_set_target_revision() {
   local src_file="$1"
-  local eval_line="$2"
+  local source_path="$2"
+  local new_version="$3"
+  # The version is passed via the environment and read with strenv(), so it is
+  # never interpolated into the yq expression (prevents expression injection).
+  local eval_line="${source_path}.targetRevision = strenv(NEW_VERSION)"
 
-  diff -B <(yq "$src_file") <(yq eval "$eval_line" "$src_file") | patch "$src_file"
+  diff -B <(yq "$src_file") <(NEW_VERSION="$new_version" yq eval "$eval_line" "$src_file") | patch "$src_file"
 }
 
 check_command "helm"
@@ -96,7 +100,7 @@ get_latest_oci_version_via_harbor_api() {
   fi
 
   api_url="https://${registry_host}/api/v2.0/projects/${project}/repositories/${repo_name}/artifacts?page_size=100"
-  tags=$(curl -sfL "$api_url" 2>/dev/null | jq -r '.[].tags[].name' 2>/dev/null || true)
+  tags=$(curl -sfL --proto '=https' --tlsv1.2 --max-time 30 "$api_url" 2>/dev/null | jq -r '.[].tags[].name' 2>/dev/null || true)
   if is_empty_value "$tags"; then
     return 1
   fi
@@ -147,7 +151,7 @@ apply_target_revision_update() {
   fi
 
   if [ "$dry_run" != true ]; then
-    yq_patch_file "$file" "${source_path}.targetRevision = \"$latest_version\""
+    yq_set_target_revision "$file" "$source_path" "$latest_version"
   fi
 
   log_success "Updated ${source_label} in $file to $latest_version."
@@ -228,12 +232,13 @@ process_chart_source() {
   process_helm_repo_chart_source "$file" "$source_path" "$source_label" "$repo_alias"
 }
 
-if [ "$recursive" = true ]; then
-  find_command="find \"$main_directory\" -type f \( -name \"*.yaml\" -o -name \"*.yml\" \) -print0"
-else
-  find_command="find \"$main_directory\" -maxdepth 1 -type f \( -name \"*.yaml\" -o -name \"*.yml\" \) -print0"
+find_depth_args=(-type f)
+if [ "$recursive" != true ]; then
+  find_depth_args=(-maxdepth 1 -type f)
 fi
 
+# No eval: main_directory is passed as a single argument, so shell metacharacters
+# in the input cannot be executed.
 while IFS= read -r -d $'\0' file; do
   kind=$(yq eval '.kind' "$file")
 
@@ -289,7 +294,7 @@ while IFS= read -r -d $'\0' file; do
   if [ "$file_updated" = true ]; then
     updated_count=$((updated_count + 1))
   fi
-done < <(eval "$find_command")
+done < <(find "$main_directory" "${find_depth_args[@]}" \( -name "*.yaml" -o -name "*.yml" \) -print0)
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "updated_count=$updated_count" >> "$GITHUB_OUTPUT"
